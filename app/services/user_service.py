@@ -1,6 +1,6 @@
 from app import db
 from app.models import User
-from werkzeug.security import generate_password_hash
+from werkzeug.security import generate_password_hash, check_password_hash
 
 
 class UserService:
@@ -61,4 +61,18 @@ class UserService:
         except Exception:
             db.session.rollback()
             raise
+
+    @staticmethod
+    def get_user_by_username(username):
+        """Retrieve a user by username"""
+        if not username:
+            return None
+        return User.query.filter_by(username=username.strip()).first()
+
+    @staticmethod
+    def verify_password(user, password):
+        """Verify a user's password"""
+        if not user or not password:
+            return False
+        return check_password_hash(user.password_hash, password)
 
