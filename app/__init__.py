@@ -32,9 +32,10 @@ def create_app():
     migrate.init_app(app, db)
 
     # Blueprints registrieren
-    from app.routes import main_bp, example_bp, user_bp
+    from app.routes import main_bp, example_bp, user_bp, family_bp
     app.register_blueprint(main_bp)
     app.register_blueprint(example_bp)
     app.register_blueprint(user_bp)
+    app.register_blueprint(family_bp)
 
     return app
