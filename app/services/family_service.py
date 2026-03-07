@@ -1,6 +1,5 @@
 from app import db
 from app.models import Family, UserFamilyRole, Role, User
-from app.utils.constants import RoleNames
 
 
 class FamilyService:
@@ -43,9 +42,9 @@ class FamilyService:
             db.session.flush()  # Get the ID without committing
             
             # Get Familyadmin role from database
-            family_admin_role = Role.query.filter_by(name=RoleNames.FAMILY_ADMIN).first()
+            family_admin_role = Role.query.filter_by(name='Familyadmin').first()
             if not family_admin_role:
-                raise ValueError(f'Role {RoleNames.FAMILY_ADMIN} not found in database')
+                raise ValueError('Role Familyadmin not found in database')
             
             # Assign creator as Familyadmin
             user_family_role = UserFamilyRole(
@@ -71,10 +70,12 @@ class FamilyService:
             
         Returns:
             UserFamilyRole object
-        """        # Use Guest as default role if none specified
+        """
+        # Use Guest as default role if none specified
         if role_name is None:
-            role_name = RoleNames.GUEST
-                # Check if user exists
+            role_name = 'Guest'
+
+        # Check if user exists
         user = User.query.get(user_id)
         if not user:
             raise ValueError('User not found')
