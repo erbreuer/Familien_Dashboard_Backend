@@ -24,7 +24,7 @@ def create_app():
     app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
     # JWT Konfiguration
-    app.config['JWT_SECRET_KEY'] = 'your-secret-key'  # Aus .env laden!
+    app.config['JWT_SECRET_KEY'] = os.environ.get('JWT_SECRET_KEY')  # Aus .env laden!
     jwt = JWTManager(app)
 
     # Extensions mit app verbinden
