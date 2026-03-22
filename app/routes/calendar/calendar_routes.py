@@ -9,7 +9,10 @@ calendar_bp = Blueprint('calendar', __name__, url_prefix='/api/calendar')
 def _parse_datetime(value):
     if not value:
         return None
-    return datetime.fromisoformat(value)
+    try:
+        return datetime.fromisoformat(value)
+    except (ValueError, TypeError):
+        raise ValueError(f"Invalid datetime format: '{value}'. Expected ISO 8601, e.g. '2026-04-01T10:00:00'")
 
 
 @calendar_bp.route('/', methods=['POST'])

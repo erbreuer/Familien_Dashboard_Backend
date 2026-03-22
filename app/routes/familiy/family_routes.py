@@ -94,12 +94,16 @@ def get_families():
 def get_family(family_id):
     """Get family details with members"""
     try:
+        current_user_id = int(get_jwt_identity())
         family = FamilyService.get_family_by_id(family_id)
         if not family:
             return jsonify({'error': 'Family not found'}), 404
-        
+
+        if not FamilyService.is_member(current_user_id, family_id):
+            return jsonify({'error': 'Access denied'}), 403
+
         members = FamilyService.get_family_members(family_id)
-        
+
         return jsonify({
             'family': family.to_dict(),
             'members': [member.to_dict() for member in members]
