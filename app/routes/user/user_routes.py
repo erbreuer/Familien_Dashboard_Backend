@@ -1,6 +1,6 @@
 from flask import Blueprint, request, jsonify
 from app.services import UserService
-from flask_jwt_extended import create_access_token, jwt_required, get_jwt_identity
+from flask_jwt_extended import create_access_token, jwt_required, get_jwt_identity, set_access_cookies, unset_jwt_cookies
 
 user_bp = Blueprint('user', __name__, url_prefix='/api/users')
 
@@ -49,12 +49,13 @@ def register():
         
         # Generate JWT token
         access_token = create_access_token(identity=str(user.id))
-        
-        return jsonify({
+
+        response = jsonify({
             'message': 'User registered successfully',
-            'access_token': access_token,
             'user': user.to_dict()
-        }), 201
+        })
+        set_access_cookies(response, access_token)
+        return response, 201
         
     except ValueError as e:
         return jsonify({'error': str(e)}), 400
@@ -101,12 +102,13 @@ def login():
         
         # Generate JWT token
         access_token = create_access_token(identity=str(user.id))
-        
-        return jsonify({
+
+        response = jsonify({
             'message': 'Login successful',
-            'access_token': access_token,
             'user': user.to_dict()
-        }), 200
+        })
+        set_access_cookies(response, access_token)
+        return response, 200
         
     except Exception as e:
         return jsonify({'error': 'Login failed', 'details': str(e)}), 500
@@ -116,18 +118,26 @@ def login():
 @jwt_required()
 def get_profile():
     """Get current user profile (requires JWT token)
-    
+
     Returns: Current user data
     """
     try:
         current_user_id = int(get_jwt_identity())
         user = UserService.get_user_by_id(current_user_id)
-        
+
         if not user:
             return jsonify({'error': 'User not found'}), 404
-        
+
         return jsonify(user.to_dict()), 200
-        
+
     except Exception as e:
         return jsonify({'error': 'Failed to get profile', 'details': str(e)}), 500
 
+
+@user_bp.route('/logout', methods=['POST'])
+@jwt_required()
+def logout():
+    """Logout — löscht den JWT-Cookie."""
+    response = jsonify({'message': 'Logout erfolgreich'})
+    unset_jwt_cookies(response)
+    return response, 200
