@@ -1,6 +1,6 @@
 from flask import Blueprint, request, jsonify
-from app.services import UserService
-from flask_jwt_extended import create_access_token, jwt_required, get_jwt_identity
+from app.services import UserService, FamilyService, RoleService
+from flask_jwt_extended import create_access_token, jwt_required, get_jwt_identity, set_access_cookies, unset_jwt_cookies
 
 user_bp = Blueprint('user', __name__, url_prefix='/api/users')
 
@@ -17,44 +17,29 @@ def register():
         "last_name": "string"
     }
     
-    Returns: User object with JWT token
+    Returns: User object; JWT is set as cookie
     """
     try:
         data = request.get_json()
         if not data:
             return jsonify({'error': 'No data provided'}), 400
-        
-        username = data.get('username')
-        password = data.get('password')
-        first_name = data.get('first_name')
-        last_name = data.get('last_name')
-        
-        # Validate required fields
-        if not username:
-            return jsonify({'error': 'Username is required'}), 400
-        if not password:
-            return jsonify({'error': 'Password is required'}), 400
-        if not first_name:
-            return jsonify({'error': 'First name is required'}), 400
-        if not last_name:
-            return jsonify({'error': 'Last name is required'}), 400
-        
-        # Create user
+
         user = UserService.create_user(
-            username=username,
-            password=password,
-            first_name=first_name,
-            last_name=last_name
+            username=data.get('username'),
+            password=data.get('password'),
+            first_name=data.get('first_name'),
+            last_name=data.get('last_name')
         )
         
         # Generate JWT token
         access_token = create_access_token(identity=str(user.id))
-        
-        return jsonify({
+
+        response = jsonify({
             'message': 'User registered successfully',
-            'access_token': access_token,
             'user': user.to_dict()
-        }), 201
+        })
+        set_access_cookies(response, access_token)
+        return response, 201
         
     except ValueError as e:
         return jsonify({'error': str(e)}), 400
@@ -72,7 +57,7 @@ def login():
         "password": "string"
     }
     
-    Returns: JWT token and user data
+    Returns: User data; JWT is set as cookie
     """
     try:
         data = request.get_json()
@@ -101,12 +86,23 @@ def login():
         
         # Generate JWT token
         access_token = create_access_token(identity=str(user.id))
-        
-        return jsonify({
+
+        user_families = FamilyService.get_user_families(user.id)
+        families = [
+            {
+                'family_id': ufr.family_id,
+                'is_admin': RoleService.is_family_admin(user.id, ufr.family_id)
+            }
+            for ufr in user_families
+        ]
+
+        response = jsonify({
             'message': 'Login successful',
-            'access_token': access_token,
-            'user': user.to_dict()
-        }), 200
+            'user': user.to_dict(),
+            'families': families,
+        })
+        set_access_cookies(response, access_token)
+        return response, 200
         
     except Exception as e:
         return jsonify({'error': 'Login failed', 'details': str(e)}), 500
@@ -116,18 +112,26 @@ def login():
 @jwt_required()
 def get_profile():
     """Get current user profile (requires JWT token)
-    
+
     Returns: Current user data
     """
     try:
         current_user_id = int(get_jwt_identity())
         user = UserService.get_user_by_id(current_user_id)
-        
+
         if not user:
             return jsonify({'error': 'User not found'}), 404
-        
+
         return jsonify(user.to_dict()), 200
-        
+
     except Exception as e:
         return jsonify({'error': 'Failed to get profile', 'details': str(e)}), 500
 
+
+@user_bp.route('/logout', methods=['POST'])
+@jwt_required()
+def logout():
+    """Logout — löscht den JWT-Cookie."""
+    response = jsonify({'message': 'Logout erfolgreich'})
+    unset_jwt_cookies(response)
+    return response, 200
