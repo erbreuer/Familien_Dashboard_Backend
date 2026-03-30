@@ -44,7 +44,7 @@ def get_weather(family_id):
 
 
 @weather_bp.route('/<int:family_id>/location', methods=['PUT'])
-@jwt_required()
+#@jwt_required()
 def update_location(family_id):
     """Update the weather location for the family. Admin only.
 
