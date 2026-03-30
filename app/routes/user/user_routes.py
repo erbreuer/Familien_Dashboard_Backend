@@ -17,7 +17,7 @@ def register():
         "last_name": "string"
     }
     
-    Returns: User object with JWT token
+    Returns: User object; JWT is set as cookie
     """
     try:
         data = request.get_json()
@@ -36,7 +36,6 @@ def register():
 
         response = jsonify({
             'message': 'User registered successfully',
-            'access_token': access_token,
             'user': user.to_dict()
         })
         set_access_cookies(response, access_token)
@@ -58,7 +57,7 @@ def login():
         "password": "string"
     }
     
-    Returns: JWT token and user data
+    Returns: User data; JWT is set as cookie
     """
     try:
         data = request.get_json()
@@ -99,7 +98,6 @@ def login():
 
         response = jsonify({
             'message': 'Login successful',
-            'access_token': access_token,
             'user': user.to_dict(),
             'families': families,
         })
