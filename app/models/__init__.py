@@ -4,6 +4,7 @@ from .family import Family, UserFamilyRole
 from .widget import WidgetType, FamilyWidget, WidgetRolePermission
 from .todo import Todo
 from .weather import FamilyWeatherConfig
+from .calendar import CalendarEvent, CalendarEventVisibility
 
 __all__ = [
     'User',
@@ -14,5 +15,7 @@ __all__ = [
     'FamilyWidget',
     'WidgetRolePermission',
     'Todo',
-    'FamilyWeatherConfig'
+    'FamilyWeatherConfig',
+    'CalendarEvent',
+    'CalendarEventVisibility',
 ]
