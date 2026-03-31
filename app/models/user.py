@@ -15,9 +15,13 @@ class User(db.Model):
     is_active = db.Column(db.Boolean, default=True)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
+    is_system_admin = db.Column(db.Boolean, default=False)
+
     # Relationships
     family_roles = db.relationship(
         'UserFamilyRole', back_populates='user', cascade='all, delete-orphan')
+    widget_permissions = db.relationship(
+        'WidgetUserPermission', back_populates='user', cascade='all, delete-orphan')
 
     def to_dict(self):
         """Convert user object to dictionary"""

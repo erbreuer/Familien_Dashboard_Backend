@@ -7,17 +7,13 @@ class WidgetType(db.Model):
     __tablename__ = 'widget_types'
 
     id = db.Column(db.Integer, primary_key=True)
-    # e.g., 'todo', 'weather', 'calendar'
     key = db.Column(db.String(100), unique=True, nullable=False)
     display_name = db.Column(db.String(255), nullable=False)
     description = db.Column(db.Text)
 
-    # Relationships
-    family_widgets = db.relationship(
-        'FamilyWidget', back_populates='widget_type')
+    family_widgets = db.relationship('FamilyWidget', back_populates='widget_type')
 
     def to_dict(self):
-        """Convert widget type to dictionary"""
         return {
             'id': self.id,
             'key': self.key,
@@ -40,63 +36,71 @@ class FamilyWidget(db.Model):
         'widget_types.id', ondelete='CASCADE'), nullable=False)
     is_enabled = db.Column(db.Boolean, default=True)
 
-    # Unique constraint: Family kann ein Widget-Typ nur einmal haben
+    # Grid-Layout (frontend-seitig konfigurierbar, backend-seitig gespeichert)
+    grid_col = db.Column(db.Integer, default=1)
+    grid_row = db.Column(db.Integer, default=1)
+    grid_pos_x = db.Column(db.Integer, default=0)
+    grid_pos_y = db.Column(db.Integer, default=0)
+
     __table_args__ = (db.UniqueConstraint(
         'family_id', 'widget_type_id', name='uq_family_widget_type'),)
 
-    # Relationships
     family = db.relationship('Family', back_populates='widgets')
-    widget_type = db.relationship(
-        'WidgetType', back_populates='family_widgets')
-    permissions = db.relationship(
-        'WidgetRolePermission', back_populates='family_widget', cascade='all, delete-orphan')
+    widget_type = db.relationship('WidgetType', back_populates='family_widgets')
+    user_permissions = db.relationship(
+        'WidgetUserPermission', back_populates='family_widget', cascade='all, delete-orphan')
 
     def to_dict(self):
-        """Convert family widget to dictionary"""
         return {
             'id': self.id,
             'family_id': self.family_id,
             'widget_type_id': self.widget_type_id,
             'widget_key': self.widget_type.key if self.widget_type else None,
-            'is_enabled': self.is_enabled
+            'is_enabled': self.is_enabled,
+            'grid_col': self.grid_col,
+            'grid_row': self.grid_row,
+            'grid_pos_x': self.grid_pos_x,
+            'grid_pos_y': self.grid_pos_y,
         }
 
     def __repr__(self):
         return f'<FamilyWidget family_id={self.family_id} widget_type={self.widget_type_id}>'
 
 
-class WidgetRolePermission(db.Model):
-    """WidgetRolePermission model - Defines role permissions for widgets"""
-    __tablename__ = 'widget_role_permissions'
+class WidgetUserPermission(db.Model):
+    """WidgetUserPermission model - Per-user permissions for a widget within a family.
+
+    Einträge werden automatisch angelegt wenn:
+    - Ein User einer Familie beitritt (für alle aktiven Widgets)
+    - Ein Admin ein Widget aktiviert (für alle Familienmitglieder)
+    Die Defaults kommen aus BaseWidget.get_default_permissions(role_name).
+    Ein Admin kann Einträge nachträglich per PUT-Route überschreiben.
+    """
+    __tablename__ = 'widget_user_permissions'
 
     id = db.Column(db.Integer, primary_key=True)
     family_widget_id = db.Column(db.Integer, db.ForeignKey(
         'family_widgets.id', ondelete='CASCADE'), nullable=False)
-    role_id = db.Column(db.Integer, db.ForeignKey(
-        'roles.id', ondelete='CASCADE'), nullable=False)
+    user_id = db.Column(db.Integer, db.ForeignKey(
+        'users.id', ondelete='CASCADE'), nullable=False)
 
     can_view = db.Column(db.Boolean, default=True)
     can_edit = db.Column(db.Boolean, default=False)
 
-    # Unique constraint: Role kann nur einmal für ein Widget Berechtigungen haben
     __table_args__ = (db.UniqueConstraint(
-        'family_widget_id', 'role_id', name='uq_widget_role'),)
+        'family_widget_id', 'user_id', name='uq_widget_user'),)
 
-    # Relationships
-    family_widget = db.relationship(
-        'FamilyWidget', back_populates='permissions')
-    role = db.relationship('Role', back_populates='widget_permissions')
+    family_widget = db.relationship('FamilyWidget', back_populates='user_permissions')
+    user = db.relationship('User', back_populates='widget_permissions')
 
     def to_dict(self):
-        """Convert widget role permission to dictionary"""
         return {
             'id': self.id,
             'family_widget_id': self.family_widget_id,
-            'role_id': self.role_id,
-            'role_name': self.role.name if self.role else None,
+            'user_id': self.user_id,
             'can_view': self.can_view,
-            'can_edit': self.can_edit
+            'can_edit': self.can_edit,
         }
 
     def __repr__(self):
-        return f'<WidgetRolePermission widget_id={self.family_widget_id} role_id={self.role_id}>'
+        return f'<WidgetUserPermission widget_id={self.family_widget_id} user_id={self.user_id}>'

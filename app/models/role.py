@@ -12,8 +12,6 @@ class Role(db.Model):
     # Relationships
     user_family_roles = db.relationship(
         'UserFamilyRole', back_populates='role')
-    widget_permissions = db.relationship(
-        'WidgetRolePermission', back_populates='role')
 
     def to_dict(self):
         """Convert role object to dictionary"""
