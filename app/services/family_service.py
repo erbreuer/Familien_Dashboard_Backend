@@ -1,5 +1,5 @@
 from app import db
-from app.models import Family, UserFamilyRole, Role, User
+from app.models import Family, UserFamilyRole, Role, User, FamilyWidget, WidgetUserPermission
 
 
 class FamilyService:
@@ -104,9 +104,29 @@ class FamilyService:
             family_id=family_id,
             role_id=role.id
         )
-        
+
         try:
             db.session.add(user_family_role)
+            db.session.flush()
+
+            # Widget-Permissions für alle aktiven Widgets anlegen
+            from app.widgets import registry
+            active_widgets = FamilyWidget.query.filter_by(
+                family_id=family_id, is_enabled=True
+            ).all()
+            for family_widget in active_widgets:
+                widget_key = family_widget.widget_type.key if family_widget.widget_type else None
+                widget_instance = registry.get(widget_key) if widget_key else None
+                defaults = widget_instance.get_default_permissions(role_name) if widget_instance else {
+                    'can_view': True, 'can_edit': False
+                }
+                db.session.add(WidgetUserPermission(
+                    family_widget_id=family_widget.id,
+                    user_id=user_id,
+                    can_view=defaults['can_view'],
+                    can_edit=defaults['can_edit'],
+                ))
+
             db.session.commit()
             return user_family_role
         except Exception:
