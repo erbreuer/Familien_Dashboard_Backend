@@ -41,16 +41,24 @@ def create_app():
         example_bp,
         user_bp,
         family_bp,
-        calendar_bp,
-        weather_bp,
         widget_bp,
     )
     app.register_blueprint(main_bp)
     app.register_blueprint(example_bp)
     app.register_blueprint(user_bp)
     app.register_blueprint(family_bp)
-    app.register_blueprint(calendar_bp)
-    app.register_blueprint(weather_bp)
     app.register_blueprint(widget_bp)
+
+    # Widget-Packages importieren — triggert register() in deren __init__.py
+    import app.widgets.todo as _todo_widget
+    import app.widgets.weather as _weather_widget
+
+    # Widget-Routen anmelden und Registry mit DB synchronisieren
+    from app.widgets.registry import get_all, sync_to_db
+    for widget in get_all():
+        widget.register_routes(app)
+
+    with app.app_context():
+        sync_to_db()
 
     return app
