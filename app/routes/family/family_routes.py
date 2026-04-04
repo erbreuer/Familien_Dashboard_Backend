@@ -1,6 +1,7 @@
 from flask import Blueprint, request, jsonify
 from app.services import FamilyService
 from flask_jwt_extended import jwt_required, get_jwt_identity
+from app.utils import require_family_admin
 
 family_bp = Blueprint('family', __name__, url_prefix='/api/families')
 
@@ -99,12 +100,9 @@ def get_family(family_id):
 
 @family_bp.route('/<int:family_id>', methods=['DELETE'])
 @jwt_required()
+@require_family_admin
 def delete_family(family_id):
     try:
-        family = FamilyService.get_family_by_id(family_id)
-        if not family:
-            return jsonify({'error': 'Family not found'}), 404
-        
         FamilyService.delete_family(family_id)
         
         return jsonify({'message': 'Family deleted successfully'}), 200

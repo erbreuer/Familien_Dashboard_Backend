@@ -1,25 +1,18 @@
 """Weather Widget Routes"""
 import requests
 from flask import Blueprint, request, jsonify
-from flask_jwt_extended import jwt_required, get_jwt_identity
+from flask_jwt_extended import jwt_required
 from app.widgets.weather.service import WeatherService
-from app.services.family_service import FamilyService
-from app.utils import require_family_admin
+from app.utils import require_widget_permission
 
 bp = Blueprint('weather', __name__, url_prefix='/api/weather')
 
 
 @bp.route('/<int:family_id>', methods=['GET'])
 @jwt_required()
+@require_widget_permission('can_view')
 def get_weather(family_id):
     try:
-        current_user_id = int(get_jwt_identity())
-
-        families = FamilyService.get_user_families(current_user_id)
-        family_ids = [ufr.family_id for ufr in families]
-        if family_id not in family_ids:
-            return jsonify({'error': 'Kein Zugriff auf diese Familie'}), 403
-
         weather_data = WeatherService.fetch_weather(family_id)
         return jsonify(weather_data), 200
 
@@ -33,15 +26,9 @@ def get_weather(family_id):
 
 @bp.route('/<int:family_id>/location', methods=['GET'])
 @jwt_required()
+@require_widget_permission('can_view')
 def get_location(family_id):
     try:
-        current_user_id = int(get_jwt_identity())
-
-        families = FamilyService.get_user_families(current_user_id)
-        family_ids = [ufr.family_id for ufr in families]
-        if family_id not in family_ids:
-            return jsonify({'error': 'Kein Zugriff auf diese Familie'}), 403
-
         config = WeatherService.get_or_create_config(family_id)
         return jsonify({'location': config.to_dict()}), 200
 
@@ -51,7 +38,7 @@ def get_location(family_id):
 
 @bp.route('/<int:family_id>/location', methods=['PUT'])
 @jwt_required()
-@require_family_admin
+@require_widget_permission('can_edit')
 def update_location(family_id):
     try:
         data = request.get_json()
