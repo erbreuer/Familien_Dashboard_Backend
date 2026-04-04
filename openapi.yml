@@ -128,9 +128,6 @@ components:
         description:
           type: string
           example: Gemeinsame Todo-Liste für die Familie
-        is_enabled:
-          type: boolean
-          example: true
         grid_col:
           type: integer
           example: 2
@@ -516,7 +513,10 @@ paths:
 
     post:
       summary: Create a new family
-      description: The authenticated user is automatically assigned the Familyadmin role.
+      description: >
+        The authenticated user is automatically assigned the Familyadmin role.
+        All registered widgets are automatically created for the family with
+        default permissions for the admin.
       tags: [Families]
       security:
         - cookieAuth: []
@@ -599,7 +599,7 @@ paths:
 
     delete:
       summary: Delete a family and all associated data
-      description: Cascades deletion to all related widgets, todos, and user roles.
+      description: Requires Familyadmin role. Cascades deletion to all related widgets, todos, and user roles.
       tags: [Families]
       security:
         - cookieAuth: []
@@ -616,8 +616,8 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/DeleteResponse"
-        "404":
-          description: Family not found
+        "403":
+          description: Not a family admin
           content:
             application/json:
               schema:
@@ -634,7 +634,7 @@ paths:
       summary: Join an existing family
       description: >
         The authenticated user is added with the Guest role by default.
-        Widget permissions are automatically created for all active widgets
+        Widget permissions are automatically created for all widgets
         using each widget's default permissions.
       tags: [Families]
       security:
@@ -669,9 +669,8 @@ paths:
     get:
       summary: Get widgets visible to the authenticated user
       description: >
-        Returns all active widgets for which the user has can_view=true.
+        Returns all widgets for which the user has can_view=true.
         Includes can_edit so the frontend can show or hide edit controls.
-        Accessible to all family members.
       tags: [Widgets]
       security:
         - cookieAuth: []
@@ -700,107 +699,12 @@ paths:
               schema:
                 $ref: "#/components/schemas/Error"
 
-    post:
-      summary: Activate a widget for the family
-      description: >
-        Requires Familyadmin role. Creates WidgetUserPermission entries for all
-        current family members using the widget's default permissions.
-      tags: [Widgets]
-      security:
-        - cookieAuth: []
-      parameters:
-        - name: family_id
-          in: path
-          required: true
-          schema:
-            type: integer
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              required: [widget_key]
-              properties:
-                widget_key:
-                  type: string
-                  example: todo
-      responses:
-        "201":
-          description: Widget activated
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/Widget"
-        "400":
-          description: Widget key not found or already active
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/Error"
-        "403":
-          description: Not a family admin
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/Error"
-        "500":
-          description: Internal server error
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/Error"
-
-  /api/families/{family_id}/widgets/{family_widget_id}:
-    delete:
-      summary: Deactivate a widget for the family
-      description: Requires Familyadmin role. Cascades deletion of all user permissions.
-      tags: [Widgets]
-      security:
-        - cookieAuth: []
-      parameters:
-        - name: family_id
-          in: path
-          required: true
-          schema:
-            type: integer
-        - name: family_widget_id
-          in: path
-          required: true
-          schema:
-            type: integer
-      responses:
-        "200":
-          description: Widget deactivated
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/DeleteResponse"
-        "403":
-          description: Not a family admin
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/Error"
-        "404":
-          description: Widget not found
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/Error"
-        "500":
-          description: Internal server error
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/Error"
-
   /api/families/{family_id}/widgets/{family_widget_id}/permissions/{user_id}:
     put:
       summary: Override widget permissions for a specific user
       description: >
         Requires Familyadmin role. Overwrites the user's can_view and can_edit
-        for this widget. Widget default permissions are only applied on join/activate —
+        for this widget. Default permissions are applied when a user joins —
         this endpoint is the only way to change them afterwards.
       tags: [Widgets]
       security:
@@ -956,7 +860,7 @@ paths:
               schema:
                 $ref: "#/components/schemas/Error"
         "404":
-          description: Todo widget not active
+          description: Widget not found
           content:
             application/json:
               schema:
@@ -1015,7 +919,7 @@ paths:
               schema:
                 $ref: "#/components/schemas/Error"
         "404":
-          description: Todo widget not active
+          description: Widget not found
           content:
             application/json:
               schema:
@@ -1075,7 +979,7 @@ paths:
               schema:
                 $ref: "#/components/schemas/Error"
         "404":
-          description: Todo not found or widget not active
+          description: Todo not found
           content:
             application/json:
               schema:
@@ -1118,7 +1022,7 @@ paths:
               schema:
                 $ref: "#/components/schemas/Error"
         "404":
-          description: Todo not found or widget not active
+          description: Todo not found
           content:
             application/json:
               schema:
@@ -1133,7 +1037,7 @@ paths:
   /api/weather/{family_id}:
     get:
       summary: Get current weather and forecast for a family
-      description: Returns weather data for the family's configured location. Every family member can call this endpoint.
+      description: Requires can_view permission for the weather widget.
       tags: [Weather]
       security:
         - cookieAuth: []
@@ -1157,7 +1061,13 @@ paths:
               schema:
                 $ref: "#/components/schemas/Error"
         "403":
-          description: Not a member of this family
+          description: No permission or not a family member
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: Widget not found
           content:
             application/json:
               schema:
@@ -1178,7 +1088,7 @@ paths:
   /api/weather/{family_id}/location:
     get:
       summary: Get the configured weather location for a family
-      description: Every family member can call this endpoint.
+      description: Requires can_view permission for the weather widget.
       tags: [Weather]
       security:
         - cookieAuth: []
@@ -1199,7 +1109,7 @@ paths:
                   location:
                     $ref: "#/components/schemas/WeatherLocation"
         "403":
-          description: Not a member of this family
+          description: No permission or not a family member
           content:
             application/json:
               schema:
@@ -1213,7 +1123,7 @@ paths:
 
     put:
       summary: Update the weather location for a family
-      description: Requires Familyadmin role. Geocodes the city name to get coordinates.
+      description: Requires can_edit permission for the weather widget. Geocodes the city name to get coordinates.
       tags: [Weather]
       security:
         - cookieAuth: []
@@ -1254,7 +1164,13 @@ paths:
               schema:
                 $ref: "#/components/schemas/Error"
         "403":
-          description: Not a family admin
+          description: No permission or not a family member
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: Widget not found
           content:
             application/json:
               schema:
