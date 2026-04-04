@@ -81,7 +81,7 @@ components:
           type: string
           example: johndoe
 
-    CalendarEvent:
+    Todo:
       type: object
       properties:
         id:
@@ -90,41 +90,79 @@ components:
         family_id:
           type: integer
           example: 1
-        created_by:
-          type: integer
-          example: 1
         title:
           type: string
-          example: Arzttermin
+          example: Einkaufen
         description:
           type: string
           nullable: true
-          example: Beim Hausarzt
-        start_datetime:
-          type: string
-          format: date-time
-          example: "2026-04-01T10:00:00"
-        end_datetime:
-          type: string
-          format: date-time
-          nullable: true
-          example: "2026-04-01T11:00:00"
-        is_all_day:
+          example: Milch und Brot
+        is_completed:
           type: boolean
           example: false
-        is_public_to_family:
-          type: boolean
-          example: false
-        color:
-          type: string
-          nullable: true
-          example: "#FF5733"
         created_at:
           type: string
           format: date-time
         updated_at:
           type: string
           format: date-time
+
+    Widget:
+      type: object
+      properties:
+        id:
+          type: integer
+          example: 1
+        family_id:
+          type: integer
+          example: 1
+        widget_type_id:
+          type: integer
+          example: 1
+        widget_key:
+          type: string
+          example: todo
+        display_name:
+          type: string
+          example: Aufgaben
+        description:
+          type: string
+          example: Gemeinsame Todo-Liste für die Familie
+        grid_col:
+          type: integer
+          example: 2
+        grid_row:
+          type: integer
+          example: 1
+        grid_pos_x:
+          type: integer
+          example: 0
+        grid_pos_y:
+          type: integer
+          example: 0
+        can_edit:
+          type: boolean
+          example: true
+          description: Gibt an ob der anfragende User dieses Widget bearbeiten darf
+
+    WidgetUserPermission:
+      type: object
+      properties:
+        id:
+          type: integer
+          example: 1
+        family_widget_id:
+          type: integer
+          example: 1
+        user_id:
+          type: integer
+          example: 2
+        can_view:
+          type: boolean
+          example: true
+        can_edit:
+          type: boolean
+          example: false
 
     WeatherLocation:
       type: object
@@ -170,10 +208,13 @@ components:
           example: 12.3
         weather_code:
           type: integer
-          example: 1
+          example: 800
         weather_description:
           type: string
-          example: Mainly clear
+          example: Klarer Himmel
+        icon:
+          type: string
+          example: 01d
 
     WeatherForecastDay:
       type: object
@@ -184,10 +225,13 @@ components:
           example: "2026-04-01"
         weather_code:
           type: integer
-          example: 3
+          example: 803
         weather_description:
           type: string
-          example: Overcast
+          example: Überwiegend bewölkt
+        icon:
+          type: string
+          example: 04d
         temperature_max:
           type: number
           format: float
@@ -208,48 +252,6 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/WeatherForecastDay"
-
-    WidgetPermission:
-      type: object
-      properties:
-        role_name:
-          type: string
-          example: Familyadmin
-        can_view:
-          type: boolean
-          example: true
-        can_edit:
-          type: boolean
-          example: true
-
-    Widget:
-      type: object
-      properties:
-        id:
-          type: integer
-          example: 1
-        family_id:
-          type: integer
-          example: 1
-        widget_type_id:
-          type: integer
-          example: 1
-        widget_key:
-          type: string
-          example: weather
-        display_name:
-          type: string
-          example: Wetter
-        description:
-          type: string
-          example: Zeigt das aktuelle Wetter an
-        is_enabled:
-          type: boolean
-          example: true
-        permissions:
-          type: array
-          items:
-            $ref: "#/components/schemas/WidgetPermission"
 
     AuthResponse:
       type: object
@@ -511,7 +513,10 @@ paths:
 
     post:
       summary: Create a new family
-      description: The authenticated user is automatically assigned the Familyadmin role.
+      description: >
+        The authenticated user is automatically assigned the Familyadmin role.
+        All registered widgets are automatically created for the family with
+        default permissions for the admin.
       tags: [Families]
       security:
         - cookieAuth: []
@@ -594,7 +599,7 @@ paths:
 
     delete:
       summary: Delete a family and all associated data
-      description: Cascades deletion to all related widgets, todos, and user roles.
+      description: Requires Familyadmin role. Cascades deletion to all related widgets, todos, and user roles.
       tags: [Families]
       security:
         - cookieAuth: []
@@ -611,8 +616,8 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/DeleteResponse"
-        "404":
-          description: Family not found
+        "403":
+          description: Not a family admin
           content:
             application/json:
               schema:
@@ -627,7 +632,10 @@ paths:
   /api/families/{family_id}/join:
     post:
       summary: Join an existing family
-      description: The authenticated user is added with the Guest role by default.
+      description: >
+        The authenticated user is added with the Guest role by default.
+        Widget permissions are automatically created for all widgets
+        using each widget's default permissions.
       tags: [Families]
       security:
         - cookieAuth: []
@@ -659,8 +667,10 @@ paths:
 
   /api/families/{family_id}/widgets:
     get:
-      summary: Get all widgets for a family
-      description: Returns all widgets with their role permissions. Requires Familyadmin role.
+      summary: Get widgets visible to the authenticated user
+      description: >
+        Returns all widgets for which the user has can_view=true.
+        Includes can_edit so the frontend can show or hide edit controls.
       tags: [Widgets]
       security:
         - cookieAuth: []
@@ -672,7 +682,7 @@ paths:
             type: integer
       responses:
         "200":
-          description: List of widgets with permissions
+          description: List of widgets with permissions for this user
           content:
             application/json:
               schema:
@@ -682,12 +692,6 @@ paths:
                     type: array
                     items:
                       $ref: "#/components/schemas/Widget"
-        "403":
-          description: Not a family admin
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/Error"
         "500":
           description: Internal server error
           content:
@@ -695,58 +699,61 @@ paths:
               schema:
                 $ref: "#/components/schemas/Error"
 
-  /api/calendar/:
-    post:
-      summary: Create a new calendar event
-      tags: [Calendar]
+  /api/families/{family_id}/widgets/{family_widget_id}/permissions/{user_id}:
+    put:
+      summary: Override widget permissions for a specific user
+      description: >
+        Requires Familyadmin role. Overwrites the user's can_view and can_edit
+        for this widget. Default permissions are applied when a user joins —
+        this endpoint is the only way to change them afterwards.
+      tags: [Widgets]
       security:
         - cookieAuth: []
+      parameters:
+        - name: family_id
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: family_widget_id
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: user_id
+          in: path
+          required: true
+          schema:
+            type: integer
       requestBody:
         required: true
         content:
           application/json:
             schema:
               type: object
-              required: [family_id, title, start_datetime]
+              required: [can_view, can_edit]
               properties:
-                family_id:
-                  type: integer
-                  example: 1
-                title:
-                  type: string
-                  example: Arzttermin
-                start_datetime:
-                  type: string
-                  format: date-time
-                  example: "2026-04-01T10:00:00"
-                end_datetime:
-                  type: string
-                  format: date-time
-                  nullable: true
-                  example: "2026-04-01T11:00:00"
-                description:
-                  type: string
-                  nullable: true
-                  example: Beim Hausarzt
-                is_all_day:
+                can_view:
                   type: boolean
-                  default: false
-                is_public_to_family:
+                  example: true
+                can_edit:
                   type: boolean
-                  default: false
-                color:
-                  type: string
-                  nullable: true
-                  example: "#FF5733"
+                  example: true
       responses:
-        "201":
-          description: Event created
+        "200":
+          description: Permission updated
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/CalendarEvent"
-        "400":
-          description: Missing required fields or invalid datetime format
+                $ref: "#/components/schemas/WidgetUserPermission"
+        "403":
+          description: Not a family admin
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: Widget or permission entry not found
           content:
             application/json:
               schema:
@@ -758,11 +765,74 @@ paths:
               schema:
                 $ref: "#/components/schemas/Error"
 
-  /api/calendar/family/{family_id}:
+  /api/families/{family_id}/widgets/{family_widget_id}/layout:
+    put:
+      summary: Update the grid layout of a widget
+      description: Requires Familyadmin role.
+      tags: [Widgets]
+      security:
+        - cookieAuth: []
+      parameters:
+        - name: family_id
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: family_widget_id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                grid_col:
+                  type: integer
+                  example: 2
+                grid_row:
+                  type: integer
+                  example: 1
+                grid_pos_x:
+                  type: integer
+                  example: 0
+                grid_pos_y:
+                  type: integer
+                  example: 0
+      responses:
+        "200":
+          description: Layout updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Widget"
+        "403":
+          description: Not a family admin
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: Widget not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "500":
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /api/families/{family_id}/todos:
     get:
-      summary: Get all visible calendar events for the current user in a family
-      description: Returns events that are public to the family, created by the user, or explicitly shared with the user.
-      tags: [Calendar]
+      summary: Get all todos for a family
+      description: Requires can_view permission for the todo widget.
+      tags: [Todos]
       security:
         - cookieAuth: []
       parameters:
@@ -773,13 +843,28 @@ paths:
             type: integer
       responses:
         "200":
-          description: List of visible calendar events
+          description: List of todos
           content:
             application/json:
               schema:
-                type: array
-                items:
-                  $ref: "#/components/schemas/CalendarEvent"
+                type: object
+                properties:
+                  todos:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/Todo"
+        "403":
+          description: No permission or not a family member
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: Widget not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
         "500":
           description: Internal server error
           content:
@@ -787,27 +872,54 @@ paths:
               schema:
                 $ref: "#/components/schemas/Error"
 
-  /api/calendar/{event_id}:
-    get:
-      summary: Get a single calendar event by ID
-      tags: [Calendar]
+    post:
+      summary: Create a new todo
+      description: Requires can_edit permission for the todo widget.
+      tags: [Todos]
       security:
         - cookieAuth: []
       parameters:
-        - name: event_id
+        - name: family_id
           in: path
           required: true
           schema:
             type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [title]
+              properties:
+                title:
+                  type: string
+                  example: Einkaufen
+                description:
+                  type: string
+                  nullable: true
+                  example: Milch und Brot
       responses:
-        "200":
-          description: Calendar event
+        "201":
+          description: Todo created
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/CalendarEvent"
+                $ref: "#/components/schemas/Todo"
+        "400":
+          description: Missing title
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "403":
+          description: No permission or not a family member
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
         "404":
-          description: Event not found or access denied
+          description: Widget not found
           content:
             application/json:
               schema:
@@ -819,14 +931,20 @@ paths:
               schema:
                 $ref: "#/components/schemas/Error"
 
+  /api/families/{family_id}/todos/{todo_id}:
     put:
-      summary: Update a calendar event
-      description: Only the creator of the event can update it.
-      tags: [Calendar]
+      summary: Update a todo
+      description: Requires can_edit permission for the todo widget.
+      tags: [Todos]
       security:
         - cookieAuth: []
       parameters:
-        - name: event_id
+        - name: family_id
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: todo_id
           in: path
           required: true
           schema:
@@ -840,32 +958,28 @@ paths:
               properties:
                 title:
                   type: string
+                  example: Einkaufen
                 description:
                   type: string
                   nullable: true
-                start_datetime:
-                  type: string
-                  format: date-time
-                end_datetime:
-                  type: string
-                  format: date-time
-                  nullable: true
-                is_all_day:
+                is_completed:
                   type: boolean
-                is_public_to_family:
-                  type: boolean
-                color:
-                  type: string
-                  nullable: true
+                  example: true
       responses:
         "200":
-          description: Updated event
+          description: Todo updated
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/CalendarEvent"
-        "400":
-          description: Not the creator or invalid data
+                $ref: "#/components/schemas/Todo"
+        "403":
+          description: No permission or not a family member
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: Todo not found
           content:
             application/json:
               schema:
@@ -878,72 +992,37 @@ paths:
                 $ref: "#/components/schemas/Error"
 
     delete:
-      summary: Delete a calendar event
-      description: Only the creator of the event can delete it.
-      tags: [Calendar]
+      summary: Delete a todo
+      description: Requires can_edit permission for the todo widget.
+      tags: [Todos]
       security:
         - cookieAuth: []
       parameters:
-        - name: event_id
+        - name: family_id
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: todo_id
           in: path
           required: true
           schema:
             type: integer
       responses:
         "200":
-          description: Event deleted
+          description: Todo deleted
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/DeleteResponse"
-        "400":
-          description: Not the creator or event not found
+        "403":
+          description: No permission or not a family member
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/Error"
-        "500":
-          description: Internal server error
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/Error"
-
-  /api/calendar/{event_id}/visibility:
-    put:
-      summary: Set which users can see an event
-      description: Only the creator can set visibility. Replaces the entire visibility list.
-      tags: [Calendar]
-      security:
-        - cookieAuth: []
-      parameters:
-        - name: event_id
-          in: path
-          required: true
-          schema:
-            type: integer
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              required: [user_ids]
-              properties:
-                user_ids:
-                  type: array
-                  items:
-                    type: integer
-                  example: [2, 3]
-      responses:
-        "200":
-          description: Updated event with new visibility
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/CalendarEvent"
-        "400":
-          description: Not the creator or missing user_ids
+        "404":
+          description: Todo not found
           content:
             application/json:
               schema:
@@ -957,8 +1036,8 @@ paths:
 
   /api/weather/{family_id}:
     get:
-      summary: Get current weather and 7-day forecast for a family
-      description: Returns weather data for the family's configured location. Every family member can call this endpoint.
+      summary: Get current weather and forecast for a family
+      description: Requires can_view permission for the weather widget.
       tags: [Weather]
       security:
         - cookieAuth: []
@@ -970,7 +1049,7 @@ paths:
             type: integer
       responses:
         "200":
-          description: Weather data with current conditions and 7-day forecast
+          description: Weather data with current conditions and 5-day forecast
           content:
             application/json:
               schema:
@@ -982,7 +1061,13 @@ paths:
               schema:
                 $ref: "#/components/schemas/Error"
         "403":
-          description: Not a member of this family
+          description: No permission or not a family member
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: Widget not found
           content:
             application/json:
               schema:
@@ -1003,7 +1088,7 @@ paths:
   /api/weather/{family_id}/location:
     get:
       summary: Get the configured weather location for a family
-      description: Every family member can call this endpoint.
+      description: Requires can_view permission for the weather widget.
       tags: [Weather]
       security:
         - cookieAuth: []
@@ -1024,7 +1109,7 @@ paths:
                   location:
                     $ref: "#/components/schemas/WeatherLocation"
         "403":
-          description: Not a member of this family
+          description: No permission or not a family member
           content:
             application/json:
               schema:
@@ -1038,7 +1123,7 @@ paths:
 
     put:
       summary: Update the weather location for a family
-      description: Requires Familyadmin role. Geocodes the city name to get coordinates.
+      description: Requires can_edit permission for the weather widget. Geocodes the city name to get coordinates.
       tags: [Weather]
       security:
         - cookieAuth: []
@@ -1079,7 +1164,13 @@ paths:
               schema:
                 $ref: "#/components/schemas/Error"
         "403":
-          description: Not a family admin
+          description: No permission or not a family member
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: Widget not found
           content:
             application/json:
               schema:

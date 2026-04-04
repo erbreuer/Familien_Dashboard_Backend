@@ -1,5 +1,5 @@
-from flask import Blueprint, jsonify
-from flask_jwt_extended import jwt_required
+from flask import Blueprint, request, jsonify
+from flask_jwt_extended import jwt_required, get_jwt_identity
 from app.services import WidgetService
 from app.utils import require_family_admin
 
@@ -8,24 +8,57 @@ widget_bp = Blueprint('widget', __name__, url_prefix='/api/families')
 
 @widget_bp.route('/<int:family_id>/widgets', methods=['GET'])
 @jwt_required()
-@require_family_admin
-def get_all_widgets(family_id):
-    """Gibt alle Widgets der Familie zurück. Nur für Familyadmin.
-
-    Returns:
-        {
-            "widgets": [
-                {
-                    "id", "family_id", "widget_type_id", "widget_key",
-                    "display_name", "description", "is_enabled",
-                    "permissions": [{ "role_name", "can_view", "can_edit" }, ...]
-                },
-                ...
-            ]
-        }
-    """
+def get_widgets(family_id):
     try:
-        widgets = WidgetService.get_all_widgets(family_id)
+        user_id = int(get_jwt_identity())
+        widgets = WidgetService.get_widgets_for_user(family_id, user_id)
         return jsonify({'widgets': widgets}), 200
     except Exception as e:
         return jsonify({'error': 'Widgets konnten nicht abgerufen werden', 'details': str(e)}), 500
+
+
+@widget_bp.route('/<int:family_id>/widgets/<int:family_widget_id>/permissions/<int:user_id>', methods=['PUT'])
+@jwt_required()
+@require_family_admin
+def update_user_permission(family_id, family_widget_id, user_id):
+    try:
+        data = request.get_json()
+        if not data:
+            return jsonify({'error': 'Keine Daten übergeben'}), 400
+
+        perm = WidgetService.update_user_permission(
+            family_id=family_id,
+            family_widget_id=family_widget_id,
+            user_id=user_id,
+            can_view=data.get('can_view', True),
+            can_edit=data.get('can_edit', False),
+        )
+        return jsonify(perm.to_dict()), 200
+    except ValueError as e:
+        return jsonify({'error': str(e)}), 404
+    except Exception as e:
+        return jsonify({'error': 'Permission konnte nicht aktualisiert werden', 'details': str(e)}), 500
+
+
+@widget_bp.route('/<int:family_id>/widgets/<int:family_widget_id>/layout', methods=['PUT'])
+@jwt_required()
+@require_family_admin
+def update_layout(family_id, family_widget_id):
+    try:
+        data = request.get_json()
+        if not data:
+            return jsonify({'error': 'Keine Daten übergeben'}), 400
+
+        family_widget = WidgetService.update_layout(
+            family_id=family_id,
+            family_widget_id=family_widget_id,
+            grid_col=data.get('grid_col', 1),
+            grid_row=data.get('grid_row', 1),
+            grid_pos_x=data.get('grid_pos_x', 0),
+            grid_pos_y=data.get('grid_pos_y', 0),
+        )
+        return jsonify(family_widget.to_dict()), 200
+    except ValueError as e:
+        return jsonify({'error': str(e)}), 404
+    except Exception as e:
+        return jsonify({'error': 'Layout konnte nicht aktualisiert werden', 'details': str(e)}), 500

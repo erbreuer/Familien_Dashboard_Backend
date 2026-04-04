@@ -1,6 +1,7 @@
 from flask import Blueprint, request, jsonify
 from app.services import FamilyService
 from flask_jwt_extended import jwt_required, get_jwt_identity
+from app.utils import require_family_admin
 
 family_bp = Blueprint('family', __name__, url_prefix='/api/families')
 
@@ -8,15 +9,6 @@ family_bp = Blueprint('family', __name__, url_prefix='/api/families')
 @family_bp.route('', methods=['POST'])
 @jwt_required()
 def create_family():
-    """Create a new family
-    
-    Expected JSON body:
-    {
-        "name": "string"
-    }
-    
-    Returns: Family object with creator as Familyadmin
-    """
     try:
         current_user_id = int(get_jwt_identity())
         data = request.get_json()
@@ -41,16 +33,9 @@ def create_family():
 @family_bp.route('/<int:family_id>/join', methods=['POST'])
 @jwt_required()
 def join_family(family_id):
-    """Join an existing family
-    
-    The user is added with 'Guest' role by default
-    
-    Returns: UserFamilyRole object
-    """
     try:
         current_user_id = int(get_jwt_identity())
-        
-        # Add user with Guest role (default)
+
         user_family_role = FamilyService.add_user_to_family(
             current_user_id,
             family_id
@@ -67,7 +52,6 @@ def join_family(family_id):
 @family_bp.route('', methods=['GET'])
 @jwt_required()
 def get_families():
-    """Get all families of the current user"""
     try:
         current_user_id = int(get_jwt_identity())
         user_family_roles = FamilyService.get_user_families(current_user_id)
@@ -92,7 +76,6 @@ def get_families():
 @family_bp.route('/<int:family_id>', methods=['GET'])
 @jwt_required()
 def get_family(family_id):
-    """Get family details with members"""
     try:
         current_user_id = int(get_jwt_identity())
         family = FamilyService.get_family_by_id(family_id)
@@ -117,13 +100,9 @@ def get_family(family_id):
 
 @family_bp.route('/<int:family_id>', methods=['DELETE'])
 @jwt_required()
+@require_family_admin
 def delete_family(family_id):
-    """Delete a family (admin only)"""
     try:
-        family = FamilyService.get_family_by_id(family_id)
-        if not family:
-            return jsonify({'error': 'Family not found'}), 404
-        
         FamilyService.delete_family(family_id)
         
         return jsonify({'message': 'Family deleted successfully'}), 200
