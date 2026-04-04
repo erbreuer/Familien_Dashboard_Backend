@@ -68,7 +68,6 @@ def require_widget_permission(permission: str):
                 .filter(
                     FamilyWidget.family_id == family_id,
                     WidgetType.key == widget_key,
-                    FamilyWidget.is_enabled == True,
                 )
                 .first()
             )

@@ -17,36 +17,6 @@ def get_widgets(family_id):
         return jsonify({'error': 'Widgets konnten nicht abgerufen werden', 'details': str(e)}), 500
 
 
-@widget_bp.route('/<int:family_id>/widgets', methods=['POST'])
-@jwt_required()
-@require_family_admin
-def enable_widget(family_id):
-    try:
-        data = request.get_json()
-        if not data or not data.get('widget_key'):
-            return jsonify({'error': 'Feld "widget_key" ist erforderlich'}), 400
-
-        family_widget = WidgetService.enable_widget(family_id, data['widget_key'])
-        return jsonify(family_widget.to_dict()), 201
-    except ValueError as e:
-        return jsonify({'error': str(e)}), 400
-    except Exception as e:
-        return jsonify({'error': 'Widget konnte nicht aktiviert werden', 'details': str(e)}), 500
-
-
-@widget_bp.route('/<int:family_id>/widgets/<int:family_widget_id>', methods=['DELETE'])
-@jwt_required()
-@require_family_admin
-def disable_widget(family_id, family_widget_id):
-    try:
-        WidgetService.disable_widget(family_id, family_widget_id)
-        return jsonify({'message': 'Widget deaktiviert'}), 200
-    except ValueError as e:
-        return jsonify({'error': str(e)}), 404
-    except Exception as e:
-        return jsonify({'error': 'Widget konnte nicht deaktiviert werden', 'details': str(e)}), 500
-
-
 @widget_bp.route('/<int:family_id>/widgets/<int:family_widget_id>/permissions/<int:user_id>', methods=['PUT'])
 @jwt_required()
 @require_family_admin

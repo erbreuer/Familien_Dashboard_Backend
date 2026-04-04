@@ -32,7 +32,6 @@ class FamilyWidget(db.Model):
         'families.id', ondelete='CASCADE'), nullable=False)
     widget_type_id = db.Column(db.Integer, db.ForeignKey(
         'widget_types.id', ondelete='CASCADE'), nullable=False)
-    is_enabled = db.Column(db.Boolean, default=True)
 
     grid_col = db.Column(db.Integer, default=1)
     grid_row = db.Column(db.Integer, default=1)
@@ -53,7 +52,6 @@ class FamilyWidget(db.Model):
             'family_id': self.family_id,
             'widget_type_id': self.widget_type_id,
             'widget_key': self.widget_type.key if self.widget_type else None,
-            'is_enabled': self.is_enabled,
             'grid_col': self.grid_col,
             'grid_row': self.grid_row,
             'grid_pos_x': self.grid_pos_x,

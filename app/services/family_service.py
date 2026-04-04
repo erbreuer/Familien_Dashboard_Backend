@@ -1,5 +1,5 @@
 from app import db
-from app.models import Family, UserFamilyRole, Role, User, FamilyWidget, WidgetUserPermission
+from app.models import Family, UserFamilyRole, Role, User, FamilyWidget, WidgetUserPermission, WidgetType
 
 
 class FamilyService:
@@ -33,6 +33,26 @@ class FamilyService:
                 role_id=family_admin_role.id
             )
             db.session.add(user_family_role)
+
+            # Auto-create all widgets + permissions for the admin
+            from app.widgets import registry
+            for wt in WidgetType.query.all():
+                fw = FamilyWidget(family_id=family.id, widget_type_id=wt.id)
+                db.session.add(fw)
+                db.session.flush()
+
+                widget_instance = registry.get(wt.key)
+                defaults = widget_instance.get_default_permissions('Familyadmin') if widget_instance else {
+                    'can_view': True, 'can_edit': True
+                }
+                defaults['can_view'] = True
+                db.session.add(WidgetUserPermission(
+                    family_widget_id=fw.id,
+                    user_id=creator_user_id,
+                    can_view=defaults['can_view'],
+                    can_edit=defaults['can_edit'],
+                ))
+
             db.session.commit()
             return family
         except Exception:
@@ -73,12 +93,9 @@ class FamilyService:
             db.session.add(user_family_role)
             db.session.flush()
 
-            # Widget-Permissions für alle aktiven Widgets anlegen
             from app.widgets import registry
-            active_widgets = FamilyWidget.query.filter_by(
-                family_id=family_id, is_enabled=True
-            ).all()
-            for family_widget in active_widgets:
+            family_widgets = FamilyWidget.query.filter_by(family_id=family_id).all()
+            for family_widget in family_widgets:
                 widget_key = family_widget.widget_type.key if family_widget.widget_type else None
                 widget_instance = registry.get(widget_key) if widget_key else None
                 defaults = widget_instance.get_default_permissions(role_name) if widget_instance else {
@@ -111,7 +128,6 @@ class FamilyService:
         family = Family.query.get(family_id)
         if not family:
             raise ValueError('Family not found')
-        
         return UserFamilyRole.query.filter_by(family_id=family_id).all()
 
     @staticmethod
@@ -119,7 +135,6 @@ class FamilyService:
         user = User.query.get(user_id)
         if not user:
             raise ValueError('User not found')
-        
         return UserFamilyRole.query.filter_by(user_id=user_id).all()
 
     @staticmethod
@@ -128,10 +143,8 @@ class FamilyService:
             user_id=user_id,
             family_id=family_id
         ).first()
-        
         if not user_family_role:
             raise ValueError('User is not member of this family')
-        
         try:
             db.session.delete(user_family_role)
             db.session.commit()
@@ -144,7 +157,6 @@ class FamilyService:
         family = Family.query.get(family_id)
         if not family:
             raise ValueError('Family not found')
-        
         try:
             db.session.delete(family)
             db.session.commit()

@@ -1,6 +1,5 @@
 """Weather service - handles geocoding and weather API calls (OpenWeatherMap)"""
 import os
-import time
 import requests
 from app import db
 from app.models import FamilyWeatherConfig
@@ -9,12 +8,6 @@ from app.models import FamilyWeatherConfig
 GEOCODING_URL = 'https://api.openweathermap.org/geo/1.0/direct'
 CURRENT_WEATHER_URL = 'https://api.openweathermap.org/data/2.5/weather'
 FORECAST_URL = 'https://api.openweathermap.org/data/2.5/forecast'
-
-# Cache TTL in seconds — 60s = max 60 API calls/hour per family (free tier limit)
-CACHE_TTL = int(os.environ.get('WEATHER_CACHE_TTL', 60))
-
-# In-memory cache: { family_id: {'data': dict, 'ts': float} }
-_weather_cache: dict[int, dict] = {}
 
 
 def _api_key() -> str:
@@ -25,7 +18,6 @@ def _api_key() -> str:
 
 
 class WeatherService:
-    """Handles weather config storage and API calls"""
 
     @staticmethod
     def geocode_city(city_name: str) -> dict:
@@ -62,7 +54,6 @@ class WeatherService:
 
     @staticmethod
     def update_location(family_id: int, city_name: str) -> FamilyWeatherConfig:
-        """Geocode city_name and persist the new location for the family."""
         geo = WeatherService.geocode_city(city_name)
         config = WeatherService.get_or_create_config(family_id)
         config.city_name = geo['city_name']
@@ -70,7 +61,6 @@ class WeatherService:
         config.longitude = geo['longitude']
         try:
             db.session.commit()
-            _weather_cache.pop(family_id, None)  # invalidate cache on location change
             return config
         except Exception:
             db.session.rollback()
@@ -78,15 +68,6 @@ class WeatherService:
 
     @staticmethod
     def fetch_weather(family_id: int) -> dict:
-        """Fetch current weather + 5-day forecast for the family's configured location.
-
-        Results are cached in memory for CACHE_TTL seconds to stay within the
-        OpenWeatherMap free-tier limit of 60 calls/hour.
-        """
-        cached = _weather_cache.get(family_id)
-        if cached and (time.monotonic() - cached['ts']) < CACHE_TTL:
-            return cached['data']
-
         config = WeatherService.get_or_create_config(family_id)
         api_key = _api_key()
         params = {
@@ -144,10 +125,8 @@ class WeatherService:
             day['temperature_min'] = round(min(temps), 1) if temps else None
             forecast.append(day)
 
-        result = {
+        return {
             'location': config.to_dict(),
             'current': current,
             'forecast': forecast,
         }
-        _weather_cache[family_id] = {'data': result, 'ts': time.monotonic()}
-        return result
