@@ -33,11 +33,6 @@ class FamilyWidget(db.Model):
     widget_type_id = db.Column(db.Integer, db.ForeignKey(
         'widget_types.id', ondelete='CASCADE'), nullable=False)
 
-    grid_col = db.Column(db.Integer, default=1)
-    grid_row = db.Column(db.Integer, default=1)
-    grid_pos_x = db.Column(db.Integer, default=0)
-    grid_pos_y = db.Column(db.Integer, default=0)
-
     __table_args__ = (db.UniqueConstraint(
         'family_id', 'widget_type_id', name='uq_family_widget_type'),)
 
@@ -45,6 +40,8 @@ class FamilyWidget(db.Model):
     widget_type = db.relationship('WidgetType', back_populates='family_widgets')
     user_permissions = db.relationship(
         'WidgetUserPermission', back_populates='family_widget', cascade='all, delete-orphan')
+    user_configs = db.relationship(
+        'UserWidgetConfig', back_populates='family_widget', cascade='all, delete-orphan')
 
     def to_dict(self):
         return {
@@ -52,10 +49,6 @@ class FamilyWidget(db.Model):
             'family_id': self.family_id,
             'widget_type_id': self.widget_type_id,
             'widget_key': self.widget_type.key if self.widget_type else None,
-            'grid_col': self.grid_col,
-            'grid_row': self.grid_row,
-            'grid_pos_x': self.grid_pos_x,
-            'grid_pos_y': self.grid_pos_y,
         }
 
     def __repr__(self):
@@ -91,3 +84,36 @@ class WidgetUserPermission(db.Model):
 
     def __repr__(self):
         return f'<WidgetUserPermission widget_id={self.family_widget_id} user_id={self.user_id}>'
+
+
+class UserWidgetConfig(db.Model):
+    __tablename__ = 'user_widget_configs'
+
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey(
+        'users.id', ondelete='CASCADE'), nullable=False)
+    family_widget_id = db.Column(db.Integer, db.ForeignKey(
+        'family_widgets.id', ondelete='CASCADE'), nullable=False)
+
+    position = db.Column(db.Integer, nullable=False, default=0)
+    grid_col = db.Column(db.Integer, nullable=False, default=1)
+    grid_row = db.Column(db.Integer, nullable=False, default=1)
+
+    __table_args__ = (db.UniqueConstraint(
+        'user_id', 'family_widget_id', name='uq_user_widget_config'),)
+
+    family_widget = db.relationship('FamilyWidget', back_populates='user_configs')
+    user = db.relationship('User', back_populates='widget_configs')
+
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'user_id': self.user_id,
+            'family_widget_id': self.family_widget_id,
+            'position': self.position,
+            'grid_col': self.grid_col,
+            'grid_row': self.grid_row,
+        }
+
+    def __repr__(self):
+        return f'<UserWidgetConfig user_id={self.user_id} widget_id={self.family_widget_id}>'

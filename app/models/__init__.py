@@ -1,7 +1,7 @@
 from .user import User
 from .role import Role
 from .family import Family, UserFamilyRole
-from .widget import WidgetType, FamilyWidget, WidgetUserPermission
+from .widget import WidgetType, FamilyWidget, WidgetUserPermission, UserWidgetConfig
 from .todo import Todo
 from .weather import FamilyWeatherConfig
 
@@ -13,6 +13,7 @@ __all__ = [
     'WidgetType',
     'FamilyWidget',
     'WidgetUserPermission',
+    'UserWidgetConfig',
     'Todo',
     'FamilyWeatherConfig',
 ]

@@ -208,7 +208,9 @@ Löscht eine Familie samt aller Daten (Mitglieder, Widgets, Todos).
 ### Widgets
 
 #### `GET /api/families/<family_id>/widgets`
-Gibt alle Widgets zurück, für die der User `can_view` hat. Enthält ein `can_edit`-Flag pro Widget.
+Gibt alle Widgets zurück, für die der User `can_view` hat. Enthält Layout-Konfiguration des eingeloggten Users (`position`, `grid_col`, `grid_row`) sowie ein `can_edit`-Flag.
+
+`position`, `grid_col` und `grid_row` sind `null`, wenn der User das Widget noch nicht zu seinem Dashboard hinzugefügt hat. Die Widgets sind bereits nach `position` aufsteigend sortiert (Widgets ohne Konfiguration am Ende).
 
 **Auth:** JWT erforderlich
 
@@ -223,10 +225,9 @@ Gibt alle Widgets zurück, für die der User `can_view` hat. Enthält ein `can_e
       "widget_key": "todo",
       "display_name": "Aufgaben",
       "description": "Gemeinsame Todo-Liste für die Familie",
-      "grid_col": 1,
+      "position": 0,
+      "grid_col": 2,
       "grid_row": 1,
-      "grid_pos_x": 0,
-      "grid_pos_y": 0,
       "can_edit": true
     }
   ]
@@ -254,24 +255,31 @@ Das Frontend sollte anhand von `can_edit` entscheiden, ob Bearbeitungs-Buttons a
 
 ---
 
-#### `PUT /api/families/<family_id>/widgets/<family_widget_id>/layout`
-Speichert die Grid-Position/Größe eines Widgets.
+#### `PUT /api/families/<family_id>/widgets/layout`
+Speichert das komplette Dashboard-Layout des eingeloggten Users. Ersetzt alle bisherigen Layout-Einträge für diese Familie atomisch.
 
-**Auth:** JWT + Familyadmin
+Beim Drag & Drop oder Resize das gesamte aktuelle `addedWidgets`-Array als `layout` schicken.
+
+**Auth:** JWT erforderlich (kein Admin nötig)
 
 **Body:**
 ```json
 {
-  "grid_col": 2,
-  "grid_row": 1,
-  "grid_pos_x": 0,
-  "grid_pos_y": 0
+  "layout": [
+    { "family_widget_id": 1, "position": 0, "grid_col": 2, "grid_row": 1 },
+    { "family_widget_id": 3, "position": 1, "grid_col": 1, "grid_row": 1 }
+  ]
 }
 ```
 
 **Antwort (200):**
 ```json
-{ "id", "family_id", "widget_type_id", "widget_key", "grid_col", "grid_row", "grid_pos_x", "grid_pos_y" }
+{
+  "configs": [
+    { "id": 1, "user_id": 5, "family_widget_id": 1, "position": 0, "grid_col": 2, "grid_row": 1 },
+    { "id": 2, "user_id": 5, "family_widget_id": 3, "position": 1, "grid_col": 1, "grid_row": 1 }
+  ]
+}
 ```
 
 ---
@@ -433,9 +441,13 @@ Gibt den konfigurierten Ort zurück. Standard: Berlin.
 ### Admin-Aktionen
 ```
 - Berechtigung ändern:  PUT /api/families/<id>/widgets/<widget_id>/permissions/<user_id>
-- Layout speichern:     PUT /api/families/<id>/widgets/<widget_id>/layout
 - Wetter-Ort ändern:    PUT /api/weather/<id>/location
 - Familie löschen:      DELETE /api/families/<id>
+```
+
+### User-Aktionen
+```
+- Dashboard-Layout speichern:  PUT /api/families/<id>/widgets/layout
 ```
 
 ---
