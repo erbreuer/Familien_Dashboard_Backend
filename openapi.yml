@@ -128,22 +128,47 @@ components:
         description:
           type: string
           example: Gemeinsame Todo-Liste für die Familie
+        position:
+          type: integer
+          nullable: true
+          example: 0
+          description: Anzeigeposition im Dashboard des Users. null wenn noch nicht konfiguriert.
+        grid_col:
+          type: integer
+          nullable: true
+          example: 2
+          description: Breite in Grid-Spalten. null wenn noch nicht konfiguriert.
+        grid_row:
+          type: integer
+          nullable: true
+          example: 1
+          description: Höhe in Grid-Zeilen. null wenn noch nicht konfiguriert.
+        can_edit:
+          type: boolean
+          example: true
+          description: Gibt an ob der anfragende User dieses Widget bearbeiten darf
+
+    UserWidgetConfig:
+      type: object
+      properties:
+        id:
+          type: integer
+          example: 1
+        user_id:
+          type: integer
+          example: 5
+        family_widget_id:
+          type: integer
+          example: 1
+        position:
+          type: integer
+          example: 0
         grid_col:
           type: integer
           example: 2
         grid_row:
           type: integer
           example: 1
-        grid_pos_x:
-          type: integer
-          example: 0
-        grid_pos_y:
-          type: integer
-          example: 0
-        can_edit:
-          type: boolean
-          example: true
-          description: Gibt an ob der anfragende User dieses Widget bearbeiten darf
 
     WidgetUserPermission:
       type: object
@@ -765,20 +790,18 @@ paths:
               schema:
                 $ref: "#/components/schemas/Error"
 
-  /api/families/{family_id}/widgets/{family_widget_id}/layout:
+  /api/families/{family_id}/widgets/layout:
     put:
-      summary: Update the grid layout of a widget
-      description: Requires Familyadmin role.
+      summary: Save the dashboard layout for the authenticated user
+      description: >
+        Replaces all UserWidgetConfig entries for this user and family atomically.
+        Send the full current addedWidgets array on every drag-drop or resize.
+        No admin role required — each user manages their own layout.
       tags: [Widgets]
       security:
         - cookieAuth: []
       parameters:
         - name: family_id
-          in: path
-          required: true
-          schema:
-            type: integer
-        - name: family_widget_id
           in: path
           required: true
           schema:
@@ -789,34 +812,46 @@ paths:
           application/json:
             schema:
               type: object
+              required: [layout]
               properties:
-                grid_col:
-                  type: integer
-                  example: 2
-                grid_row:
-                  type: integer
-                  example: 1
-                grid_pos_x:
-                  type: integer
-                  example: 0
-                grid_pos_y:
-                  type: integer
-                  example: 0
+                layout:
+                  type: array
+                  items:
+                    type: object
+                    required: [family_widget_id, position, grid_col, grid_row]
+                    properties:
+                      family_widget_id:
+                        type: integer
+                        example: 1
+                      position:
+                        type: integer
+                        example: 0
+                      grid_col:
+                        type: integer
+                        example: 2
+                      grid_row:
+                        type: integer
+                        example: 1
       responses:
         "200":
-          description: Layout updated
+          description: Layout saved
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/Widget"
-        "403":
-          description: Not a family admin
+                type: object
+                properties:
+                  configs:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/UserWidgetConfig"
+        "400":
+          description: Missing layout field
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/Error"
         "404":
-          description: Widget not found
+          description: Widget does not belong to this family
           content:
             application/json:
               schema:

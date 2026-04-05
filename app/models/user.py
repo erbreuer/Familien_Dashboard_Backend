@@ -20,6 +20,8 @@ class User(db.Model):
         'UserFamilyRole', back_populates='user', cascade='all, delete-orphan')
     widget_permissions = db.relationship(
         'WidgetUserPermission', back_populates='user', cascade='all, delete-orphan')
+    widget_configs = db.relationship(
+        'UserWidgetConfig', back_populates='user', cascade='all, delete-orphan')
 
     def to_dict(self):
         return {

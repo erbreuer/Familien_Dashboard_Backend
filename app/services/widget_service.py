@@ -1,6 +1,6 @@
 """Widget service"""
 from app import db
-from app.models import FamilyWidget, WidgetType, WidgetUserPermission
+from app.models import FamilyWidget, WidgetType, WidgetUserPermission, UserWidgetConfig
 
 
 class WidgetService:
@@ -18,13 +18,33 @@ class WidgetService:
             )
             .all()
         )
+
+        configs: dict[int, UserWidgetConfig] = {
+            c.family_widget_id: c
+            for c in UserWidgetConfig.query.filter_by(user_id=user_id).all()
+        }
+
         result = []
         for perm in perms:
-            data = perm.family_widget.to_dict()
-            data['display_name'] = perm.family_widget.widget_type.display_name
-            data['description'] = perm.family_widget.widget_type.description
+            fw = perm.family_widget
+            data = fw.to_dict()
+            data['display_name'] = fw.widget_type.display_name
+            data['description'] = fw.widget_type.description
             data['can_edit'] = perm.can_edit
+
+            cfg = configs.get(fw.id)
+            if cfg:
+                data['position'] = cfg.position
+                data['grid_col'] = cfg.grid_col
+                data['grid_row'] = cfg.grid_row
+            else:
+                data['position'] = None
+                data['grid_col'] = None
+                data['grid_row'] = None
+
             result.append(data)
+
+        result.sort(key=lambda w: (w['position'] is None, w['position']))
         return result
 
     @staticmethod
@@ -53,23 +73,34 @@ class WidgetService:
         return perm
 
     @staticmethod
-    def update_layout(
-        family_id: int,
-        family_widget_id: int,
-        grid_col: int,
-        grid_row: int,
-        grid_pos_x: int,
-        grid_pos_y: int,
-    ) -> FamilyWidget:
-        family_widget = FamilyWidget.query.filter_by(
-            id=family_widget_id, family_id=family_id
-        ).first()
-        if not family_widget:
-            raise ValueError('Widget nicht gefunden')
+    def update_layout(family_id: int, user_id: int, layout: list[dict]) -> list[dict]:
+        """
+        layout: [{ family_widget_id, position, grid_col, grid_row }, ...]
+        Replaces all UserWidgetConfig entries for this user+family.
+        """
+        family_widget_ids = {
+            fw.id for fw in FamilyWidget.query.filter_by(family_id=family_id).all()
+        }
 
-        family_widget.grid_col = grid_col
-        family_widget.grid_row = grid_row
-        family_widget.grid_pos_x = grid_pos_x
-        family_widget.grid_pos_y = grid_pos_y
+        UserWidgetConfig.query.filter(
+            UserWidgetConfig.user_id == user_id,
+            UserWidgetConfig.family_widget_id.in_(family_widget_ids)
+        ).delete(synchronize_session=False)
+
+        new_configs = []
+        for item in layout:
+            fwid = item.get('family_widget_id')
+            if fwid not in family_widget_ids:
+                raise ValueError(f'Widget {fwid} gehört nicht zu Familie {family_id}')
+            cfg = UserWidgetConfig(
+                user_id=user_id,
+                family_widget_id=fwid,
+                position=item.get('position', 0),
+                grid_col=item.get('grid_col', 1),
+                grid_row=item.get('grid_row', 1),
+            )
+            db.session.add(cfg)
+            new_configs.append(cfg)
+
         db.session.commit()
-        return family_widget
+        return [c.to_dict() for c in new_configs]
