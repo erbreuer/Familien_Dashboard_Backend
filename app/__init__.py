@@ -54,6 +54,11 @@ def create_app():
 
     with app.app_context():
         db.create_all()
+        from app.models.role import Role
+        for role_name in ['Familyadmin', 'Guest']:
+            if not Role.query.filter_by(name=role_name).first():
+                db.session.add(Role(name=role_name))
+        db.session.commit()
         sync_to_db()
 
     return app
