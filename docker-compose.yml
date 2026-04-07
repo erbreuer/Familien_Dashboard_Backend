@@ -12,6 +12,9 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
+    networks:
+      - dokploy-network
+      - default
 
   postgres:
     image: postgres:16-alpine
@@ -38,3 +41,7 @@ services:
 volumes:
   postgres_data:
     driver: local
+
+networks:
+  dokploy-network:
+    external: true
