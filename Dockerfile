@@ -13,4 +13,4 @@ COPY . .
 
 EXPOSE 5000
 
-CMD ["sh", "-c", ".venv/bin/alembic -c migrations/alembic.ini upgrade head && uv run gunicorn -w 4 -b 0.0.0.0:5000 'app:create_app()'"]
+CMD ["uv", "run", "gunicorn", "-w", "4", "-b", "0.0.0.0:5000", "app:create_app()"]

@@ -53,6 +53,7 @@ def create_app():
         widget.register_routes(app)
 
     with app.app_context():
+        db.create_all()
         sync_to_db()
 
     return app
