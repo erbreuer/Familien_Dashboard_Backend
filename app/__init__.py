@@ -23,8 +23,8 @@ def create_app():
     app.config['JWT_SECRET_KEY'] = os.environ.get('JWT_SECRET_KEY')
     app.config['JWT_TOKEN_LOCATION'] = ['cookies']
     app.config['JWT_COOKIE_HTTPONLY'] = True
-    app.config['JWT_COOKIE_SECURE'] = os.environ.get('FLASK_ENV') == 'production'
-    app.config['JWT_COOKIE_SAMESITE'] = 'Lax'
+    app.config['JWT_COOKIE_SECURE'] = True
+    app.config['JWT_COOKIE_SAMESITE'] = 'None'
     app.config['JWT_COOKIE_CSRF_PROTECT'] = False
     jwt = JWTManager(app)
 
