@@ -13,4 +13,4 @@ COPY . .
 
 EXPOSE 5000
 
-CMD ["sh", "-c", "FLASK_APP=app:create_app .venv/bin/flask db upgrade && uv run gunicorn -w 4 -b 0.0.0.0:5000 'app:create_app()'"]
+CMD ["sh", "-c", ".venv/bin/alembic upgrade head && uv run gunicorn -w 4 -b 0.0.0.0:5000 'app:create_app()'"]
